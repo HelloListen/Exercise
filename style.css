@@ -1,0 +1,194 @@
+header{
+   margin-top: 40px;
+    height: 80px;
+}
+nav ul li a{
+    color: black;
+    font-weight: bold;
+}
+nav ul li a:hover{
+    color: black;
+}
+ul,ol{
+    list-style: none;
+}
+ul.banner-item .liActive{
+    display: block;
+
+}
+ul.banner-item li{
+    display: none;
+}
+ul.banner-item li.liActive{
+    display: block;
+}
+div.jumbotron{
+    padding-bottom:0;
+}
+ol#dot li{
+    width: 12px;
+    height: 12px;
+    border-radius: 10px;
+    float: left;
+    margin: 5px;
+    cursor: pointer;
+    background: gray;
+    opacity: 0.6;
+}
+ol#dot li.olActive{
+    background: white;
+}
+div#slideshow{
+    position: relative;
+}
+ol{
+    position: absolute;
+    bottom: 0;
+    right: 70px;
+}
+div.jumbotron{
+    background: url(photo.jpg) no-repeat center center;
+    background-size: cover;
+}
+div.jumbotron h2{
+    color: white;
+    font-weight: bold;
+    font-size: 34px;
+    margin-top: 110px;
+}
+div.jumbotron span{
+    display: block;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    margin: 20px 0;
+}
+div.tab{
+    background: #555555;
+}
+div.tab div.tab-title{
+    cursor: pointer;
+}
+div.tab div.spotlight{
+    background: dodgerblue;
+}
+div#tab-content{
+    margin: 25px auto;
+}
+div.tab div.tab-title h4{
+    color: white;
+}
+div#tab-content div.row{
+    display: none;
+}
+div#tab-content div.row-active{
+    display: block;
+}
+div#tab-content p{
+    line-height: 1.8em;
+    color: gray;
+}
+div#tab-content div span{
+    padding-right: 10px;
+}
+div.section1,div.section2{
+    border-top:3px solid gray;
+    border-bottom:3px solid gray;
+    display: inline-block;
+    height: 200px;
+    width: 1100px;
+}
+div.section1,div.section2{
+    padding-top: 55px;
+}
+blockquote{
+    font-size: 24px;
+    width: 800px;
+    padding-left: 15px;
+    color:gray;
+}
+div.wrap-content{
+    width: 3000px;
+    height: 200px;
+    position: absolute;
+
+}
+div.section2{
+    float: left;
+    margin-right: 0;
+}
+div.section1{
+    margin: 0;
+}
+span.icon1{
+    background: url(icon.png) no-repeat 0 -30px;
+    display: block;
+    width: 160px;
+    height: 30px;
+}
+span.icon2{
+    background: url(icon.png) no-repeat 0 0;
+    display: block;
+    width: 160px;
+    height: 30px;
+}
+div#wrap{
+    width: 1100px;
+    height: 200px;
+    overflow: hidden;
+    margin: 0 auto;
+    position: relative;
+}
+.clearfix{
+    clear: both;
+}
+div.process,div.productive{
+    border-bottom: 2px solid gray;
+    padding: 40px 0;
+}
+div.process h1{
+    margin-left: 20px;
+    font-weight: bold;
+}
+div.productive h1{
+    margin-right: 10px;
+    font-weight: bold;
+}
+div.process p,div.productive p{
+    color: gray;
+    font-size: 18px;
+    padding-left: 22px;
+}
+div.process img,div.productive img{
+    padding-top: 40px;
+}
+div.process div.process-content,div.productive div.productive-content{
+    margin-top: 30px;
+}
+div.pricing{
+    padding: 40px 0 40px 10px;
+    border-bottom: 2px solid gray;
+}
+div.pricing h1 span.icon-free-large{
+    background: url(icon.png) no-repeat -40px -60px;
+    display: inline-block;
+    width: 40px;
+    line-height: 40px;
+    height: 40px;
+    margin-right: 10px;
+}
+div.pricing h1 span.icon-pro-large{
+    background: url(icon.png) no-repeat 0 -60px;
+    display: inline-block;
+    height: 40px;
+    width: 40px;
+    margin-right: 10px;
+}
+div.pricing p.pricing-text{
+    font-size: 18px;
+    color: gray;
+}
+div.contact{
+    padding: 40px 0;
+    font-size: 20px;
+}
