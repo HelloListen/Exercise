@@ -192,3 +192,23 @@ div.contact{
     padding: 40px 0;
     font-size: 20px;
 }
+div.contact-row{
+    text-align: center;
+}
+footer.container-fluid{
+    background: #3f3f3f;
+    padding: 50px 0;
+    position: relative;
+    color: gray;
+}
+footer.container-fluid a{
+    color: gray;
+}
+div.fbg span.copyright{
+    color: gray;
+}
+#blimp-crew{
+    margin-top: 40px;
+    margin-left: -33px;
+    padding-left: 63px;
+}

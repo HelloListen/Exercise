@@ -6,20 +6,38 @@ function slideshow(){
     var ol=document.getElementById("dot");
     var olis=ol.getElementsByTagName("li");
     //console.log(olis);
+    autoPlay(0);
     for(var i=0;i<olis.length;i++){
         olis[i].index=i;
         olis[i].onmouseover=function(){
+            clearInterval(timer);
             for(j=0;j<olis.length;j++){
                 olis[j].className="";
                 ulis[j].className="";
-                ulis[this.index].style.transition="all 2s ease 0.2s"
             }
             this.className="olActive";
             ulis[this.index].className="liActive";
-            ulis[this.index].style.transition="all 2s ease 0.2s"
+        }
+        olis[i].onmouseout=function(){
+            autoPlay(this.index);
         }
     }
+    function autoPlay(_index){
+         timer=setInterval(function(){
+            for(var k=0;k<olis.length;k++){
+                olis[k].className="";
+                ulis[k].className="";
+            }
+            ulis[_index].className="liActive";
+            olis[_index].className="olActive";
+             _index++;
+            if(_index==olis.length){
+                _index=0;
+            }
+        },2000);
+    }
 }
+
 
 function tabNews(){
     var titles=document.getElementsByClassName("tab-title");
@@ -53,7 +71,7 @@ function blockQuote(){
     //console.log(left);
     var timer=setInterval(function(){
         wrapcontent.style.left=left+"px";
-        left=left-1100;
+        left-=1100;
         if(left<-1100){
             left=0;
         }
