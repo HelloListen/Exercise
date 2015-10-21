@@ -1,4 +1,4 @@
-package main
+package html_parser
 
 import (
 	// "compress/gzip"
