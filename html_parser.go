@@ -13,8 +13,10 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"gopkg.in/mgo.v2/bson"
 )
 
+//www.investing.com
 type Investing struct {
 	Html string
 }
@@ -38,38 +40,48 @@ type GetValue interface {
 	matchResult(page *string, regExp string) (field string)
 }
 
-func (i *Investing) decodeJson(data []byte, done chan bool) {
+func (i *Investing) decodeBson(data []byte) {
 	// var v Investing
-	err := json.Unmarshal(data, &i)
+	err := bson.Unmarshal(data, &i)
 	if err != nil {
 		log.Println(err)
-		done <- true
 		return
 	}
-	done <- true
-	// page := v.Html
-	// Price = i.matchResult(&page, ".+? id=\"last_last\" dir=\"ltr\">(.+)?</span>.*")
-	// Prev = i.matchResult(&page, ".+?Prev. Close:</span> <span dir=\"ltr\">(.+)?</span>")
-	// Open = i.matchResult(&page, ".+?Open:</span> <span dir=\"ltr\">(.+)?</span>")
-	// RangeL = i.matchResult(&page, ".+?Day's Range:</span> <span dir=\"ltr\">(.+)? - .+?</span>")
-	// RangeR = i.matchResult(&page, ".+?Day's Range:</span> <span dir=\"ltr\">.+? - (.+)?</span>")
-	// Diff = i.matchResult(&page, ".+?pid-8839-pc\" dir=\"ltr\">(.+)?</span>")
-	// DiffP = i.matchResult(&page, ".+?pid-8839-pcp parentheses\" dir=\"ltr\">(.+)?%</span>")
-	// err = nil
-	// return
 }
 
-func (i *Investing) getField(regexp []string, page *string, field chan string) {
-	//field = make(chan string, 7)
+func (i *Investing) getField(regexp []string, page *string) (price, prev, open, rangeL, rangeR, diff, diffP string) {
+	var field = make([]string, 0)
 	for _, v := range regexp {
 		f := i.matchResult(page, v)
-		if f == "" {
-			field <- ""
-		} else {
-			field <- f
-		}
+		fmt.Println(f)
+		field = append(field, f)
 	}
-	close(field)
+	price = field[0]
+	prev = field[1]
+	open = field[2]
+	rangeL = field[3]
+	rangeR = field[4]
+	diff = field[5]
+	diffP = field[6]
+	if price == "" {
+		price = i.getFieldPrice()
+	}
+	if open == "" {
+		open = i.getFieldOpen()
+	}
+	if prev == "" {
+		prev = i.getFieldPrev()
+	}
+	if rangeL == "" || rangeR == "" {
+		rangeL, rangeR = i.getFields()
+	}
+	if diff == "" {
+		diff = i.getFieldDiff()
+	}
+	if diffP == "" {
+		diffP = i.getFieldDiffP()
+	}
+	return
 }
 
 func (i *Investing) responseHandler(w http.ResponseWriter, r *http.Request) {
@@ -85,33 +97,18 @@ func (i *Investing) responseHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("http get error.")
 		return
 	}
-	var done = make(chan bool)
-	go i.decodeJson(result, done)
-	<-done
-	var c = make(chan string)
-	var regexpSli = []string{".+? id=\"last_last\" dir=\"ltr\">(.+)?</span>.*",
+	i.decodeBson(result)
+	var regexpSli = []string{".+? id=\"last_last\" dir=\"ltr\">(.+)?</span>",
 		".+?Prev. Close:</span> <span dir=\"ltr\">(.+)?</span>",
 		".+?Open:</span> <span dir=\"ltr\">(.+)?</span>",
 		".+?Day's Range:</span> <span dir=\"ltr\">(.+)? - .+?</span>",
 		".+?Day's Range:</span> <span dir=\"ltr\">.+? - (.+)?</span>",
-		".+?pid-8839-pc\" dir=\"ltr\">(.+)?</span>",
-		".+?pid-8839-pcp parentheses\" dir=\"ltr\">(.+)?%</span>"}
+		"<span class=\"arial_20[\\s\\S]+pid-[0-9]+-pc\" dir=\"ltr\">(.+)?</span>",
+		"<span class=\"arial_20[\\S\\s]+pid-[0-9]+-pcp parentheses\" dir=\"ltr\">(.+)?%</span>"}
 	//var regexpSli = []string{".+? id=\"last_last\" dir=\"ltr\">(.+)?</span>.*"}
-	go i.getField(regexpSli, &i.Html, c)
-	price, prev, open, rangeL, rangeR, diff, diffP := <-c, <-c, <-c, <-c, <-c, <-c, <-c
+	//price, prev, open, rangeL, rangeR, diff, diffP := <-c, <-c, <-c, <-c, <-c, <-c, <-c
+	price, prev, open, rangeL, rangeR, diff, diffP := i.getField(regexpSli, &i.Html)
 	var fie FiledsSlice
-	if price == "" {
-		price = i.getFieldPrice()
-	}
-	if prev == "" || open == "" || rangeL == "" || rangeR == "" {
-		prev, open, rangeL, rangeR = i.getFields()
-	}
-	if diff == "" {
-		diff = i.getFieldDiff()
-	}
-	if diffP == "" {
-		diffP = i.getFieldDiffP()
-	}
 	fie.Investing_Fileds = append(fie.Investing_Fileds, Investing_Filed{price, prev, open, rangeL, rangeR, diff, diffP})
 	p, err := json.Marshal(fie)
 	if err != nil {
@@ -170,7 +167,41 @@ func (i *Investing) getFieldPrice() (price string) {
 	return
 }
 
-func (i *Investing) getFields() (prev, open, rangeL, rangeR string) {
+func (i *Investing) getFieldOpen() (open string) {
+	doc, err := i.NewGoqueryDoc()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	res := doc.Find(".overviewDataTable").Children().Eq(3).Children().Eq(0).Text()
+	openPrice := doc.Find(".overviewDataTable").Children().Eq(4).Children().Eq(0).Text()
+	if res == "Open" {
+		open = doc.Find(".overviewDataTable").Children().Eq(3).Children().Eq(1).Text()
+		return
+	} else if openPrice == "Price Open" {
+		open = doc.Find(".overviewDataTable").Children().Eq(4).Children().Eq(1).Text()
+		return
+	} else {
+		return ""
+	}
+}
+
+func (i *Investing) getFieldPrev() (prev string) {
+	doc, err := i.NewGoqueryDoc()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	res := doc.Find(".overviewDataTable").Children().Eq(0).Children().Eq(0).Text()
+	if res == "Prev. Close" {
+		prev = doc.Find(".overviewDataTable").Children().Eq(0).Children().Eq(1).Text()
+		return
+	} else {
+		return ""
+	}
+}
+
+func (i *Investing) getFields() (rangeL, rangeR string) {
 	var f []string
 	doc, err := i.NewGoqueryDoc()
 	if err != nil {
@@ -181,8 +212,6 @@ func (i *Investing) getFields() (prev, open, rangeL, rangeR string) {
 		data := s.Find("span[dir=ltr]").Text()
 		f = append(f, data)
 	})
-	prev = f[0]
-	open = f[1]
 	rangeLR := strings.Split(f[2], " - ")
 	rangeL = rangeLR[0]
 	rangeR = rangeLR[1]
@@ -195,7 +224,7 @@ func (i *Investing) getFieldDiff() (diff string) {
 		log.Println(err)
 		return
 	}
-	diff = doc.Find("#last_last").SiblingsFiltered(".pid-8839-pc").Text()
+	diff = doc.Find("#last_last").Siblings().Eq(0).Text()
 	return
 }
 
@@ -205,7 +234,7 @@ func (i *Investing) getFieldDiffP() (diffP string) {
 		log.Println(err)
 		return
 	}
-	data := doc.Find("#last_last").SiblingsFiltered(".pid-8839-pcp").Text()
+	data := doc.Find("#last_last").Siblings().Eq(2).Text()
 	diffP = strings.Split(data, "%")[0]
 	return
 }
