@@ -1,10 +1,14 @@
+//jin10.com抓取，使用10个代理IP，60秒抓取一次
+//抓取时间0:00-7:00
+//过滤关键字"jin10", "金十", "推荐阅读", "视频", "新品上线"
+
 package main
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
+	//"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -62,26 +66,23 @@ func (j Jin10) dealTime() (ts int64, err error) {
 }
 
 func (j *Jin10) matchResult() (content string, err error) {
+	defer func() {
+		if x := recover(); x != nil {
+			log.Printf("WARN: panic in %v", x)
+			return
+		}
+	}()
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(j.jin10_page))
 	if err != nil {
 		return "", err
 	}
-	// firstEle, err := doc.Find("#newslist table").Eq(0).Html()
-	// if err != nil {
-	// 	return "", 0, err
-	// }
-	//contentExp, err := regexp.Compile("\\<tddddd align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
-	//timeExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" width=\"55\"\\>(.+)?\\</td\\>")
-	// if err != nil {
-	// 	return "", 0, err
-	// }
-	ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
+	ID, hasID := doc.Find("#newslist .newsline").Eq(1).Attr("id")
 	if !hasID {
 		log.Println(errors.New("content match failed."))
 	}
 	content = doc.Find("#content_" + ID).Text()
 	if content == "" {
-		c := doc.Find("#newslist .newsline").Eq(0).Find("table table tr").Text()
+		c := doc.Find("#newslist .newsline").Eq(1).Find("table table tr").Text()
 		if c == "" {
 			content = ""
 			err = nil
@@ -94,7 +95,8 @@ func (j *Jin10) matchResult() (content string, err error) {
 		c = re.ReplaceAllString(c, " ")
 		c = strings.TrimSpace(c)
 		src := strings.Split(c, " ")
-		content = src[1] + src[2] + "，" + src[4] + "，" + src[3]
+		actual := strings.Replace(src[2], "实际：", "", -1)
+		content = src[1] + actual + "，" + src[4] + "，" + src[8]
 	}
 	keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线"}
 	keywordSlice := make([]string, 0)
@@ -125,11 +127,37 @@ func (j *Jin10) getPage(proxy string) error {
 	return nil
 }
 
+func (j Jin10) postContent(json []byte) error {
+	body := bytes.NewBuffer(json)
+	res, err := http.Post(apiURL, "application/json;charset=utf-8", body)
+	if err != nil {
+		return err
+	}
+	msg, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		return err
+	}
+	log.Println(string(msg))
+	return nil
+}
+
+// func (j Jin10) safeHandler(fn match) match {
+// 	return func() (content string, err error) {
+// 		defer func() {
+// 			if e, ok := recover.(error); ok {
+// 				log.Printf("WARN:panic in %v-%v", fn, e)
+// 			}
+// 		}()
+// 		fn()
+// 	}
+// }
+
 func main() {
 	var jin10 = &Jin10{}
 	var end = make(chan bool)
 	n := 0
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(time.Second * 60)
 	go func() {
 		for range ticker.C {
 			timer := time.Now().Hour()
@@ -158,30 +186,17 @@ func main() {
 					log.Println(err)
 					return
 				}
-				fmt.Println(string(p))
+				//fmt.Println(string(p))
 				n++
 				if n == 10 {
 					n = 0
 				}
 				if content != "" {
-					body := bytes.NewBuffer(p)
-					res, err := http.Post(apiURL, "application/json;charset=utf-8", body)
-					if err != nil {
-						log.Println(err)
-						return
-					}
-					msg, err := ioutil.ReadAll(res.Body)
-					defer res.Body.Close()
-					if err != nil {
-						log.Println(err)
-						return
-					}
-					fmt.Println(string(msg))
+					jin10.postContent(p)
 				}
 			}
 		}
 	}()
 	// time.Sleep(100 * time.Second)
 	<-end
-	fmt.Println("end")
 }
