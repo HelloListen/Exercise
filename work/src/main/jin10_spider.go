@@ -9,8 +9,14 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
+)
+
+const (
+	apiURL     = "http://api.wallsreetcn.com/v2/admin/livenews?api_key=lQecdGAe"
+	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
 )
 
 type Jin10 struct {
@@ -49,39 +55,55 @@ func (j *Jin10) getPage() {
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	j.jin10_page = string(body)
-	err = j.matchResult()
+	_, _, err = j.matchResult()
 	if err != nil {
 		log.Println(err)
 		return
 	}
 }
 
-func (j *Jin10) matchResult() error {
+func (j Jin10) dealTime(t string) (ts int64, err error) {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
+	now = now.In(loc)
+	return now.Unix(), nil
+}
+
+func (j *Jin10) matchResult() (content string, ts int64, err error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(j.jin10_page))
 	if err != nil {
-		return err
+		return "", 0, err
 	}
 	firstEle, err := doc.Find("#newslist table").Eq(0).Html()
 	if err != nil {
-		return err
+		return "", 0, err
 	}
-	regExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
+	contentExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
+	timeExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" width=\"55\"\\>(.+)?\\</td\\>")
 	if err != nil {
-		return err
+		return "", 0, err
 	}
-	var result string
-	f := regExp.FindStringSubmatch(firstEle)
+	f := contentExp.FindStringSubmatch(firstEle)
+	t := timeExp.FindStringSubmatch(firstEle)
 	if len(f) == 0 {
 		ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
 		if !hasID {
 			errors.New("dom match failed.")
 		}
-		result = doc.Find("#content_" + ID).Text()
+		content = doc.Find("#content_" + ID).Text()
 	} else {
-		result = f[1]
+		content = f[1]
 	}
-	fmt.Println(result)
-	return nil
+	ts, err = j.dealTime(t[1])
+	if err != nil {
+		log.Println(err)
+		return "", 0, err
+	}
+	fmt.Println(content, ts)
+	return
 }
 
 func main() {
