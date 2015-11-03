@@ -77,11 +77,11 @@ func (j *Jin10) matchResult() (content string, ts int64, err error) {
 	if err != nil {
 		return "", 0, err
 	}
-	firstEle, err := doc.Find("#newslist table").Eq(0).Html()
+	firstEle, err := doc.Find("#newslist table").Eq(44).Html()
 	if err != nil {
 		return "", 0, err
 	}
-	contentExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
+	contentExp, err := regexp.Compile("\\<tddddd align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
 	timeExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" width=\"55\"\\>(.+)?\\</td\\>")
 	if err != nil {
 		return "", 0, err
@@ -89,11 +89,17 @@ func (j *Jin10) matchResult() (content string, ts int64, err error) {
 	f := contentExp.FindStringSubmatch(firstEle)
 	t := timeExp.FindStringSubmatch(firstEle)
 	if len(f) == 0 {
-		ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
+		ID, hasID := doc.Find("#newslist .newsline").Eq(44).Attr("id")
 		if !hasID {
 			errors.New("dom match failed.")
 		}
 		content = doc.Find("#content_" + ID).Text()
+		if content == "" {
+			c := doc.Find("#newslist .newsline").Eq(44).Find("table table tr").Text()
+			re, _ := regexp.Compile("\\s{2,}")
+			src := strings.Split(re.ReplaceAllString(c, " "), " ")
+			content = src[2] + src[3] + "," + src[4] + "," + src[5]
+		}
 	} else {
 		content = f[1]
 	}
