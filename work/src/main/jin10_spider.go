@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -8,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +21,10 @@ const (
 	apiURL     = "http://api.wallsreetcn.com/v2/admin/livenews?api_key=lQecdGAe"
 	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
 )
+
+var proxy = []string{"http://123.59.83.131:23128", "http://123.59.83.140:23128", "http://123.59.83.137:23128",
+	"http://123.59.83.147:23128", "http://123.59.83.139:23128", "http://123.59.83.132:23128",
+	"http://123.59.83.141:23128", "http://123.59.83.148:23128", "http://123.59.83.130:23128", "http://123.59.83.145:23128"}
 
 type Jin10 struct {
 	jin10_page string `json:"-"`
@@ -44,25 +51,7 @@ func (j Jin10) getByProxy(url_addr, proxy_addr string) (*http.Response, error) {
 	return client.Do(request)
 }
 
-func (j *Jin10) getPage() {
-	proxy := "http://123.59.83.131:23128"
-	url := "http://jin10.com/"
-	resp, err := j.getByProxy(url, proxy)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	j.jin10_page = string(body)
-	_, _, err = j.matchResult()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-}
-
-func (j Jin10) dealTime(t string) (ts int64, err error) {
+func (j Jin10) dealTime() (ts int64, err error) {
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		return 0, err
@@ -72,47 +61,127 @@ func (j Jin10) dealTime(t string) (ts int64, err error) {
 	return now.Unix(), nil
 }
 
-func (j *Jin10) matchResult() (content string, ts int64, err error) {
+func (j *Jin10) matchResult() (content string, err error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(j.jin10_page))
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
-	firstEle, err := doc.Find("#newslist table").Eq(44).Html()
-	if err != nil {
-		return "", 0, err
+	// firstEle, err := doc.Find("#newslist table").Eq(0).Html()
+	// if err != nil {
+	// 	return "", 0, err
+	// }
+	//contentExp, err := regexp.Compile("\\<tddddd align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
+	//timeExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" width=\"55\"\\>(.+)?\\</td\\>")
+	// if err != nil {
+	// 	return "", 0, err
+	// }
+	ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
+	if !hasID {
+		log.Println(errors.New("content match failed."))
 	}
-	contentExp, err := regexp.Compile("\\<tddddd align=\"left\" valign=\"middle\" id=\"content_[0-9]+\"\\>(.+)?\\</td\\>")
-	timeExp, err := regexp.Compile("\\<td align=\"left\" valign=\"middle\" width=\"55\"\\>(.+)?\\</td\\>")
-	if err != nil {
-		return "", 0, err
-	}
-	f := contentExp.FindStringSubmatch(firstEle)
-	t := timeExp.FindStringSubmatch(firstEle)
-	if len(f) == 0 {
-		ID, hasID := doc.Find("#newslist .newsline").Eq(44).Attr("id")
-		if !hasID {
-			errors.New("dom match failed.")
+	content = doc.Find("#content_" + ID).Text()
+	if content == "" {
+		c := doc.Find("#newslist .newsline").Eq(0).Find("table table tr").Text()
+		if c == "" {
+			content = ""
+			err = nil
+			return
 		}
-		content = doc.Find("#content_" + ID).Text()
-		if content == "" {
-			c := doc.Find("#newslist .newsline").Eq(44).Find("table table tr").Text()
-			re, _ := regexp.Compile("\\s{2,}")
-			src := strings.Split(re.ReplaceAllString(c, " "), " ")
-			content = src[2] + src[3] + "," + src[4] + "," + src[5]
+		re, err := regexp.Compile("\\s{2,}")
+		if err != nil {
+			return "", err
 		}
-	} else {
-		content = f[1]
+		c = re.ReplaceAllString(c, " ")
+		c = strings.TrimSpace(c)
+		src := strings.Split(c, " ")
+		content = src[1] + src[2] + "，" + src[4] + "，" + src[3]
 	}
-	ts, err = j.dealTime(t[1])
-	if err != nil {
-		log.Println(err)
-		return "", 0, err
+	keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线"}
+	keywordSlice := make([]string, 0)
+	for _, v := range keyword {
+		rawBool := strings.Contains(content, v)
+		keywordSlice = append(keywordSlice, strconv.FormatBool(rawBool))
 	}
-	fmt.Println(content, ts)
+	hasKeyword := strings.Join(keywordSlice, ",")
+	if hasK := strings.Contains(hasKeyword, "true"); hasK {
+		content = ""
+	}
+	err = nil
 	return
 }
 
+func (j *Jin10) getPage(proxy string) error {
+	url := "http://jin10.com/"
+	resp, err := j.getByProxy(url, proxy)
+	if err != nil {
+		return err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	j.jin10_page = string(body)
+	return nil
+}
+
 func main() {
-	var j = &Jin10{}
-	j.getPage()
+	var jin10 = &Jin10{}
+	var end = make(chan bool)
+	n := 0
+	ticker := time.NewTicker(time.Second * 5)
+	go func() {
+		for range ticker.C {
+			timer := time.Now().Hour()
+			if timer >= 0 && timer <= 6 {
+				err := jin10.getPage(proxy[n])
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				content, err := jin10.matchResult()
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				ts, err := jin10.dealTime()
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				jin10.Content = content
+				jin10.CodeType = "markdown"
+				jin10.Channels = []int{1}
+				jin10.CreateAt = ts
+				p, err := json.Marshal(jin10)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				fmt.Println(string(p))
+				n++
+				if n == 10 {
+					n = 0
+				}
+				if content != "" {
+					body := bytes.NewBuffer(p)
+					res, err := http.Post(apiURL, "application/json;charset=utf-8", body)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					msg, err := ioutil.ReadAll(res.Body)
+					defer res.Body.Close()
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					fmt.Println(string(msg))
+				}
+			}
+		}
+	}()
+	// time.Sleep(100 * time.Second)
+	<-end
+	fmt.Println("end")
 }
