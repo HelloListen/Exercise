@@ -8,11 +8,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	//"fmt"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,9 +25,11 @@ import (
 )
 
 const (
-	apiURL     = "http://api.wallsreetcn.com/v2/admin/livenews?api_key=lQecdGAe"
+	apiURL     = "http://api.wallstreetcn.com/v2/admin/livenews?api_key=lQecdGAe"
 	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
 )
+
+var prevContent string
 
 var proxy = []string{"http://123.59.83.131:23128", "http://123.59.83.140:23128", "http://123.59.83.137:23128",
 	"http://123.59.83.147:23128", "http://123.59.83.139:23128", "http://123.59.83.132:23128",
@@ -76,13 +81,13 @@ func (j *Jin10) matchResult() (content string, err error) {
 	if err != nil {
 		return "", err
 	}
-	ID, hasID := doc.Find("#newslist .newsline").Eq(1).Attr("id")
+	ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
 	if !hasID {
 		log.Println(errors.New("content match failed."))
 	}
 	content = doc.Find("#content_" + ID).Text()
 	if content == "" {
-		c := doc.Find("#newslist .newsline").Eq(1).Find("table table tr").Text()
+		c := doc.Find("#newslist .newsline").Eq(0).Find("table table tr").Text()
 		if c == "" {
 			content = ""
 			err = nil
@@ -107,6 +112,22 @@ func (j *Jin10) matchResult() (content string, err error) {
 	hasKeyword := strings.Join(keywordSlice, ",")
 	if hasK := strings.Contains(hasKeyword, "true"); hasK {
 		content = ""
+	}
+	if content != "" {
+		if sameContent := strings.EqualFold(content, prevContent); sameContent {
+			content = ""
+		} else {
+			prevContent = content
+			f, err := os.OpenFile("prevContent.txt", os.O_RDWR, 0777)
+			defer f.Close()
+			if err != nil {
+				log.Println(err)
+			}
+			_, err = f.WriteString(content)
+			if err != nil {
+				log.Println(err)
+			}
+		}
 	}
 	err = nil
 	return
@@ -153,15 +174,42 @@ func (j Jin10) postContent(json []byte) error {
 // 	}
 // }
 
+func init() {
+	log.Println("start...")
+	if _, err := os.Stat("prevContent.txt"); os.IsNotExist(err) {
+		file, err := os.Create("prevContent.txt")
+		defer file.Close()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	} else {
+		f, err := os.Open("prevContent.txt")
+		defer f.Close()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		b1 := make([]byte, 1024)
+		_, err = f.Read(b1)
+		if err != nil && err != io.EOF {
+			log.Println(err)
+			return
+		}
+		fmt.Println(string(b1))
+		prevContent = string(b1)
+	}
+}
+
 func main() {
 	var jin10 = &Jin10{}
 	var end = make(chan bool)
 	n := 0
-	ticker := time.NewTicker(time.Second * 60)
+	ticker := time.NewTicker(time.Second * (60 + rand.Intn(30)))
 	go func() {
 		for range ticker.C {
 			timer := time.Now().Hour()
-			if timer >= 0 && timer <= 6 {
+			if timer >= 0 && timer <= 23 {
 				err := jin10.getPage(proxy[n])
 				if err != nil {
 					log.Println(err)
@@ -193,7 +241,11 @@ func main() {
 				}
 				if content != "" {
 					jin10.postContent(p)
+				} else {
+					log.Println("No new content.")
 				}
+			} else {
+				log.Println("Waiting...")
 			}
 		}
 	}()
