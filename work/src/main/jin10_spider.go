@@ -27,6 +27,7 @@ import (
 const (
 	apiURL     = "http://api.wallstreetcn.com/v2/admin/livenews?api_key=lQecdGAe"
 	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
+	PREVTXT    = "prevContent.txt"
 )
 
 var prevContent string
@@ -118,7 +119,7 @@ func (j *Jin10) matchResult() (content string, err error) {
 			content = ""
 		} else {
 			prevContent = content
-			f, err := os.OpenFile("prevContent.txt", os.O_RDWR, 0777)
+			f, err := os.OpenFile(PREVTXT, os.O_RDWR, 0777)
 			defer f.Close()
 			if err != nil {
 				log.Println(err)
@@ -175,16 +176,16 @@ func (j Jin10) postContent(json []byte) error {
 // }
 
 func init() {
-	log.Println("start...")
-	if _, err := os.Stat("prevContent.txt"); os.IsNotExist(err) {
-		file, err := os.Create("prevContent.txt")
+	log.Println("Init...")
+	if _, err := os.Stat(PREVTXT); os.IsNotExist(err) {
+		file, err := os.Create(PREVTXT)
 		defer file.Close()
 		if err != nil {
 			log.Println(err)
 			return
 		}
 	} else {
-		f, err := os.Open("prevContent.txt")
+		f, err := os.Open(PREVTXT)
 		defer f.Close()
 		if err != nil {
 			log.Println(err)
@@ -202,53 +203,57 @@ func init() {
 }
 
 func main() {
+	log.Println("Start...")
 	var jin10 = &Jin10{}
-	var end = make(chan bool)
+	//var end = make(chan bool)
 	n := 0
-	ticker := time.NewTicker(time.Second * (60 + rand.Intn(30)))
-	go func() {
-		for range ticker.C {
-			timer := time.Now().Hour()
-			if timer >= 0 && timer <= 23 {
-				err := jin10.getPage(proxy[n])
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				content, err := jin10.matchResult()
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				ts, err := jin10.dealTime()
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				jin10.Content = content
-				jin10.CodeType = "markdown"
-				jin10.Channels = []int{1}
-				jin10.CreateAt = ts
-				p, err := json.Marshal(jin10)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				//fmt.Println(string(p))
-				n++
-				if n == 10 {
-					n = 0
-				}
-				if content != "" {
-					jin10.postContent(p)
-				} else {
-					log.Println("No new content.")
-				}
-			} else {
-				log.Println("Waiting...")
+	//ticker := time.NewTicker(time.Second * time.Duration((60 + rand.Intn(30))))
+	//go func() {
+	//for range ticker.C {
+	for {
+		timer := time.Now().Hour()
+		if timer >= 0 && timer <= 6 {
+			err := jin10.getPage(proxy[n])
+			if err != nil {
+				log.Println(err)
+				return
 			}
+			content, err := jin10.matchResult()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			ts, err := jin10.dealTime()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			jin10.Content = content
+			jin10.CodeType = "markdown"
+			jin10.Channels = []int{1}
+			jin10.CreateAt = ts
+			p, err := json.Marshal(jin10)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			//fmt.Println(string(p))
+			n++
+			if n == len(proxy) {
+				n = 0
+			}
+			if content != "" {
+				jin10.postContent(p)
+			} else {
+				log.Println("No new content.")
+			}
+		} else {
+			log.Println("Waiting...")
 		}
-	}()
+		time.Sleep(time.Duration(rand.Intn(30)+60) * time.Second)
+	}
+	//}
+	//}()
 	// time.Sleep(100 * time.Second)
-	<-end
+	//<-end
 }
