@@ -197,7 +197,6 @@ func init() {
 			log.Println(err)
 			return
 		}
-		fmt.Println(string(b1))
 		prevContent = string(b1)
 	}
 }
