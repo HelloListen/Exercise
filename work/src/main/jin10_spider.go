@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	apiURL     = "http://api.wallstreetcn.com/v2/admin/livenews?api_key=lQecdGAe"
-	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
+	apiURL     = "http://api.wallstreetcn.com/v2/admin/livenews?api_key=YofaP1f3"
+	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=YofaP1f3"
 	PREVTXT    = "prevContent.txt"
 )
 
