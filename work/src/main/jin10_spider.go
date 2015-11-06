@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
+	// "fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -26,7 +26,7 @@ import (
 
 const (
 	apiURL     = "http://api.wallstreetcn.com/v2/admin/livenews?api_key=YofaP1f3"
-	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=YofaP1f3"
+	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
 	PREVTXT    = "prevContent.txt"
 )
 
@@ -42,6 +42,7 @@ type Jin10 struct {
 	CreateAt   int64  `json:"createAt"`
 	Channels   []int  `json:"channels"`
 	Content    string `json:"content"`
+	Importance int64  `json:"importance"`
 }
 
 func (j Jin10) getByProxy(url_addr, proxy_addr string) (*http.Response, error) {
@@ -71,7 +72,7 @@ func (j Jin10) dealTime() (ts int64, err error) {
 	return now.Unix(), nil
 }
 
-func (j *Jin10) matchResult() (content string, err error) {
+func (j *Jin10) matchResult() (content string, importance int64, err error) {
 	defer func() {
 		if x := recover(); x != nil {
 			log.Printf("WARN: panic in %v", x)
@@ -80,7 +81,13 @@ func (j *Jin10) matchResult() (content string, err error) {
 	}()
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(j.jin10_page))
 	if err != nil {
-		return "", err
+		return "", 1, err
+	}
+	_, hasStyle := doc.Find("#newslist .newsline table").Eq(0).Attr("style")
+	if hasStyle {
+		importance = 2
+	} else {
+		importance = 1
 	}
 	ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
 	if !hasID {
@@ -96,7 +103,7 @@ func (j *Jin10) matchResult() (content string, err error) {
 		}
 		re, err := regexp.Compile("\\s{2,}")
 		if err != nil {
-			return "", err
+			return "", 1, err
 		}
 		c = re.ReplaceAllString(c, " ")
 		c = strings.TrimSpace(c)
@@ -217,7 +224,7 @@ func main() {
 				log.Println(err)
 				return
 			}
-			content, err := jin10.matchResult()
+			content, importance, err := jin10.matchResult()
 			if err != nil {
 				log.Println(err)
 				return
@@ -227,6 +234,7 @@ func main() {
 				log.Println(err)
 				return
 			}
+			jin10.Importance = importance
 			jin10.Content = content
 			jin10.CodeType = "markdown"
 			jin10.Channels = []int{1}
