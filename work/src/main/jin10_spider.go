@@ -109,7 +109,7 @@ func (j *Jin10) matchResult() (content string, importance int64, err error) {
 		c = strings.TrimSpace(c)
 		src := strings.Split(c, " ")
 		actual := strings.Replace(src[2], "实际：", "", -1)
-		content = src[1] + actual + "，" + src[4] + "，" + src[8]
+		content = src[1] + actual + "，" + src[4] + "，" + src[3]
 	}
 	keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线"}
 	keywordSlice := make([]string, 0)
