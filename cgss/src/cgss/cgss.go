@@ -14,7 +14,7 @@ import (
 var centerClient *cg.CenterClient
 
 func startCenterService() error {
-	server := ipc.NewIpcServer(&cg.CenterServer{})
+	server := ipc.NewIpcSever(&cg.CenterServer{})
 	client := ipc.NewIpcClient(server)
 	centerClient = &cg.CenterClient{client}
 	return nil
@@ -22,13 +22,13 @@ func startCenterService() error {
 
 func Help(args []string) int {
 	fmt.Println(`
-			Commands:
-				login <username><level><exp>
-				logout <username>
-				send <message>
-				listplayer
-				quit(q)
-				help(h)
+		Commands:
+			login <username><level><exp>
+			logout <username>
+			send <message>
+			listplayer
+			quit(q)
+			help(h)
 		`)
 	return 0
 }
@@ -39,7 +39,7 @@ func Quit(args []string) int {
 
 func Logout(args []string) int {
 	if len(args) != 2 {
-		fmt.Println("USAGE: logout<username>")
+		fmt.Println("USAGE: logout <username>")
 		return 0
 	}
 	centerClient.RemovePlayer(args[1])
@@ -53,19 +53,18 @@ func Login(args []string) int {
 	}
 	level, err := strconv.Atoi(args[2])
 	if err != nil {
-		fmt.Println("Invalid Parameter: <level> should be an interger.")
+		fmt.Println("Invalid Parameter: <level> should me an integer.")
 		return 0
 	}
 	exp, err := strconv.Atoi(args[3])
 	if err != nil {
-		fmt.Println("Invalid Parameter: <exp> should bu an interger.")
+		fmt.Println("Invalid Parameter: <exp> should be an integer.")
 		return 0
 	}
 	player := cg.NewPlayer()
 	player.Name = args[1]
 	player.Level = level
 	player.Exp = exp
-
 	err = centerClient.AddPlayer(player)
 	if err != nil {
 		fmt.Println("Failed adding player", err)
@@ -76,7 +75,7 @@ func Login(args []string) int {
 func ListPlayer(args []string) int {
 	ps, err := centerClient.ListPlayer("")
 	if err != nil {
-		fmt.Println("Failed.", err)
+		fmt.Println("Failed. ", err)
 	} else {
 		for i, v := range ps {
 			fmt.Println(i+1, ":", v)
@@ -89,7 +88,7 @@ func Send(args []string) int {
 	message := strings.Join(args[1:], " ")
 	err := centerClient.Broadcast(message)
 	if err != nil {
-		fmt.Println("Failed.", err)
+		fmt.Println("Failed. ", err)
 	}
 	return 0
 }
@@ -98,8 +97,8 @@ func GetCommandHandlers() map[string]func(args []string) int {
 	return map[string]func([]string) int{
 		"help":       Help,
 		"h":          Help,
-		"q":          Quit,
 		"quit":       Quit,
+		"q":          Quit,
 		"login":      Login,
 		"logout":     Logout,
 		"listplayer": ListPlayer,
@@ -109,14 +108,12 @@ func GetCommandHandlers() map[string]func(args []string) int {
 
 func main() {
 	fmt.Println("Casual Game Server Solution")
-
 	startCenterService()
-
 	Help(nil)
 	r := bufio.NewReader(os.Stdin)
 	handlers := GetCommandHandlers()
 	for {
-		fmt.Println("Command>")
+		fmt.Print("Command> ")
 		b, _, _ := r.ReadLine()
 		line := string(b)
 		tokens := strings.Split(line, " ")
@@ -126,7 +123,8 @@ func main() {
 				break
 			}
 		} else {
-			fmt.Println("Unknown command:", tokens[0])
+			fmt.Println("Unknown command: ", tokens[0])
 		}
 	}
+
 }

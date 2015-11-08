@@ -6,13 +6,13 @@ import (
 )
 
 type Request struct {
-	Method string "method"
-	Params string "params"
+	Method string `json:"method"`
+	Params string `json:"params"`
 }
 
 type Response struct {
-	Code string "code"
-	Body string "body"
+	Code string `json:"code"`
+	Body string `json:"params"`
 }
 
 type Server interface {
@@ -24,7 +24,7 @@ type IpcServer struct {
 	Server
 }
 
-func NewIpcServer(server Server) *IpcServer {
+func NewIpcSever(server Server) *IpcServer {
 	return &IpcServer{server}
 }
 
@@ -40,13 +40,17 @@ func (server *IpcServer) Connect() chan string {
 			err := json.Unmarshal([]byte(request), &req)
 			if err != nil {
 				fmt.Println("Invalid request format:", request)
+				return
 			}
 			resp := server.Handle(req.Method, req.Params)
 			b, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Println(err)
+			}
 			c <- string(b)
 		}
 		fmt.Println("Session closed.")
 	}(session)
-	fmt.Println("A new session has been created successfully.")
+	fmt.Println("A new sesson has been created successfully.")
 	return session
 }
