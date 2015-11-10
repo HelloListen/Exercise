@@ -111,7 +111,7 @@ func (j *Jin10) matchResult() (content string, importance int64, err error) {
 		actual := strings.Replace(src[2], "实际：", "", -1)
 		content = src[1] + actual + "，" + src[4] + "，" + src[3]
 	}
-	keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线"}
+	keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线", "金10"}
 	keywordSlice := make([]string, 0)
 	for _, v := range keyword {
 		rawBool := strings.Contains(content, v)
@@ -255,6 +255,7 @@ func main() {
 				log.Println("No new content.")
 			}
 		} else {
+			jin10.jin10_page = ""
 			log.Println("Waiting...")
 		}
 		time.Sleep(time.Duration(rand.Intn(30)+60) * time.Second)
