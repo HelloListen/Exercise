@@ -258,7 +258,7 @@ func main() {
 			jin10.jin10_page = ""
 			log.Println("Waiting...")
 		}
-		time.Sleep(time.Duration(rand.Intn(30)+60) * time.Second)
+		time.Sleep(time.Duration(rand.Intn(10)+10) * time.Second)
 	}
 	//}
 	//}()
