@@ -28,9 +28,10 @@ const (
 	apiURL     = "http://api.wallstreetcn.com/v2/admin/livenews?api_key=YofaP1f3"
 	testapiURL = "http://api.wallstcn.com/v2/admin/livenews?api_key=lQecdGAe"
 	PREVTXT    = "prevContent.txt"
+	LISTCOUNT  = 5
 )
 
-var prevContent string
+var prevContent = make([]string, 0)
 
 var proxy = []string{"http://123.59.83.131:23128", "http://123.59.83.140:23128", "http://123.59.83.137:23128",
 	"http://123.59.83.147:23128", "http://123.59.83.139:23128", "http://123.59.83.132:23128",
@@ -42,7 +43,7 @@ type Jin10 struct {
 	CreateAt   int64  `json:"createAt"`
 	Channels   []int  `json:"channels"`
 	Content    string `json:"content"`
-	Importance int64  `json:"importance"`
+	Importance int    `json:"importance"`
 }
 
 func (j Jin10) getByProxy(url_addr, proxy_addr string) (*http.Response, error) {
@@ -72,7 +73,7 @@ func (j Jin10) dealTime() (ts int64, err error) {
 	return now.Unix(), nil
 }
 
-func (j *Jin10) matchResult() (content string, importance int64, err error) {
+func (j *Jin10) matchResult() (content []string, newImportance []int, err error) {
 	defer func() {
 		if x := recover(); x != nil {
 			log.Printf("WARN: panic in %v", x)
@@ -81,60 +82,76 @@ func (j *Jin10) matchResult() (content string, importance int64, err error) {
 	}()
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(j.jin10_page))
 	if err != nil {
-		return "", 1, err
+		return nil, nil, err
 	}
-	_, hasStyle := doc.Find("#newslist .newsline table").Eq(0).Attr("style")
-	if hasStyle {
-		importance = 2
-	} else {
-		importance = 1
-	}
-	ID, hasID := doc.Find("#newslist .newsline").Eq(0).Attr("id")
-	if !hasID {
-		log.Println(errors.New("content match failed."))
-	}
-	content = doc.Find("#content_" + ID).Text()
-	if content == "" {
-		c := doc.Find("#newslist .newsline").Eq(0).Find("table table tr").Text()
-		if c == "" {
-			content = ""
-			err = nil
-			return
-		}
-		re, err := regexp.Compile("\\s{2,}")
-		if err != nil {
-			return "", 1, err
-		}
-		c = re.ReplaceAllString(c, " ")
-		c = strings.TrimSpace(c)
-		src := strings.Split(c, " ")
-		actual := strings.Replace(src[2], "实际：", "", -1)
-		content = src[1] + actual + "，" + src[4] + "，" + src[3]
-	}
-	keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线", "金10"}
-	keywordSlice := make([]string, 0)
-	for _, v := range keyword {
-		rawBool := strings.Contains(content, v)
-		keywordSlice = append(keywordSlice, strconv.FormatBool(rawBool))
-	}
-	hasKeyword := strings.Join(keywordSlice, ",")
-	if hasK := strings.Contains(hasKeyword, "true"); hasK {
-		content = ""
-	}
-	if content != "" {
-		if sameContent := strings.EqualFold(content, prevContent); sameContent {
-			content = ""
+	var newContent = make([]string, 0)
+	var importance int
+	for i := 0; i <= LISTCOUNT; i++ {
+		_, hasStyle := doc.Find("#newslist .newsline table").Eq(i).Attr("style")
+		if hasStyle {
+			importance = 2
 		} else {
-			prevContent = content
-			f, err := os.OpenFile(PREVTXT, os.O_RDWR, 0777)
-			defer f.Close()
-			if err != nil {
-				log.Println(err)
+			importance = 1
+		}
+		newImportance = append(newImportance, importance)
+		ID, hasID := doc.Find("#newslist .newsline").Eq(i).Attr("id")
+		if !hasID {
+			log.Println(errors.New("content match failed."))
+		}
+		rawContent := doc.Find("#content_" + ID).Text()
+		if rawContent == "" {
+			c := doc.Find("#newslist .newsline").Eq(i).Find("table table tr").Text()
+			if c == "" {
+				content = nil
+				err = nil
+				return
 			}
-			_, err = f.WriteString(content)
+			re, err := regexp.Compile("\\s{2,}")
 			if err != nil {
-				log.Println(err)
+				return nil, nil, err
 			}
+			c = re.ReplaceAllString(c, " ")
+			c = strings.TrimSpace(c)
+			src := strings.Split(c, " ")
+			actual := strings.Replace(src[2], "实际：", "", -1)
+			rawContent = src[1] + actual + "，" + src[4] + "，" + src[3] + "。"
+		}
+		keyword := []string{"jin10", "金十", "推荐阅读", "视频", "新品上线", "金10"}
+		keywordSlice := make([]string, 0)
+		for _, v := range keyword {
+			rawBool := strings.Contains(rawContent, v)
+			keywordSlice = append(keywordSlice, strconv.FormatBool(rawBool))
+		}
+		hasKeyword := strings.Join(keywordSlice, ",")
+		if hasK := strings.Contains(hasKeyword, "true"); hasK {
+			rawContent = ""
+		}
+		newContent = append(newContent, rawContent)
+	}
+	newContentStr := strings.Join(newContent, ",")
+	oldContentSrt := strings.Join(prevContent, ",")
+	if sameContent := strings.EqualFold(newContentStr, oldContentSrt); sameContent {
+		content = nil
+	} else {
+		var count int
+		for k, v := range newContent {
+			if prevContent[0] == v {
+				count = k
+				break
+			} else {
+				count = len(newContent) - 1
+			}
+		}
+		content = newContent[:count]
+		prevContent = newContent
+		f, err := os.OpenFile(PREVTXT, os.O_RDWR, 0777)
+		defer f.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		_, err = f.WriteString(strings.Join(content, ","))
+		if err != nil {
+			log.Println(err)
 		}
 	}
 	err = nil
@@ -204,7 +221,8 @@ func init() {
 			log.Println(err)
 			return
 		}
-		prevContent = string(b1)
+		t := string(b1)
+		prevContent = strings.Split(t, ",")
 	}
 }
 
@@ -229,39 +247,41 @@ func main() {
 				log.Println(err)
 				return
 			}
-			ts, err := jin10.dealTime()
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			jin10.Importance = importance
-			jin10.Content = content
-			jin10.CodeType = "markdown"
-			jin10.Channels = []int{1}
-			jin10.CreateAt = ts
-			p, err := json.Marshal(jin10)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			//fmt.Println(string(p))
-			n++
-			if n == len(proxy) {
-				n = 0
-			}
-			if content != "" {
-				jin10.postContent(p)
+			if content == nil {
+				log.Println("no new content")
 			} else {
-				log.Println("No new content.")
+				for k, _ := range content {
+					ts, err := jin10.dealTime()
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					jin10.Importance = importance[k]
+					jin10.Content = content[k]
+					jin10.CodeType = "markdown"
+					jin10.Channels = []int{1}
+					jin10.CreateAt = ts
+					p, err := json.Marshal(jin10)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					n++
+					if n == len(proxy) {
+						n = 0
+					}
+					if content[k] != "" {
+						jin10.postContent(p)
+					}
+				}
 			}
 		} else {
 			jin10.jin10_page = ""
 			log.Println("Waiting...")
 		}
-		time.Sleep(time.Duration(rand.Intn(10)+10) * time.Second)
+		time.Sleep(time.Duration(rand.Intn(60)+60) * time.Second)
 	}
 	//}
 	//}()
-	// time.Sleep(100 * time.Second)
 	//<-end
 }
