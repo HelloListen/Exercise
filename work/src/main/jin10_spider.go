@@ -235,8 +235,9 @@ func main() {
 	//go func() {
 	//for range ticker.C {
 	for {
-		timer := time.Now().Hour()
-		if timer >= 0 && timer <= 6 {
+		hour := time.Now().Hour()
+		min := time.Now().Minute()
+		if (hour >= 0 && hour <= 6) || (hour == 23 && min >= 30) {
 			err := jin10.getPage(proxy[n])
 			if err != nil {
 				log.Println(err)
